@@ -318,7 +318,7 @@
       </svg>
       <div class="band-txt">
         <div class="band-h" id="bandH">Nothing called yet today</div>
-        <div class="band-s" id="bandS">28 stores on the list</div>
+        <div class="band-s" id="bandS">45 stores on the list</div>
       </div>
       <button class="btn sm ghost" id="themeBtn" type="button">◐ Theme</button>
     </div>
@@ -351,7 +351,7 @@
       <button class="chip" type="button" data-f="todo"  aria-pressed="true">To call <span class="cnt" id="cTodo">0</span></button>
       <button class="chip" type="button" data-f="day"   aria-pressed="false"><span class="swatch" style="background:var(--day-line)"></span>Day old <span class="cnt" id="cDay">0</span></button>
       <button class="chip" type="button" data-f="done"  aria-pressed="false">Done today <span class="cnt" id="cDone">0</span></button>
-      <button class="chip" type="button" data-f="all"   aria-pressed="false">All 28</button>
+      <button class="chip" type="button" data-f="all"   aria-pressed="false">All 45</button>
     </div>
     <input class="search" id="search" type="search" placeholder="Search a city…" aria-label="Search stores by city or address">
   </div>
@@ -367,7 +367,7 @@
   </div>
 
   <div class="list" id="list"></div>
-  <div class="empty" id="empty" style="display:none">Nothing here. Try the <b>All 28</b> filter.</div>
+  <div class="empty" id="empty" style="display:none">Nothing here. Try the <b>All 45</b> filter.</div>
 
   <!-- EXPORT -->
   <div class="export">
@@ -404,6 +404,7 @@
     {id:"concord",     n:"Concord",                  a:"2400 Monument Blvd",        c:"Concord",              p:"9255664003", mi:5},
     {id:"danville",    n:"Danville",                 a:"3150 Fostoria Way",         c:"Danville",             p:"9252770407", mi:12},
     {id:"richmond",    n:"Richmond",                 a:"4801 Central Ave",          c:"Richmond",             p:"5108982003", mi:18},
+    {id:"brentwood",   n:"Brentwood",                a:"5151 Heidorn Ranch Rd",     c:"Brentwood",            p:"9256660223", mi:22},
     {id:"livermore",   n:"Livermore",                a:"2800 Independence Dr",      c:"Livermore",            p:"9254436306", mi:25},
     {id:"sanleandro",  n:"San Leandro",              a:"1900 Davis St",             c:"San Leandro",          p:"5105626708", mi:26},
     {id:"antioch",     n:"Antioch",                  a:"2201 Verne Roberts Cir",    c:"Antioch",              p:"9257577130", mi:27},
@@ -417,18 +418,34 @@
     {id:"novato",      n:"Novato",                   a:"300 Vintage Way",           c:"Novato",               p:"4158991332", mi:38},
     {id:"fairfield",   n:"Fairfield",                a:"5101 Business Center Dr",   c:"Fairfield",            p:"7078643816", mi:39},
     {id:"fostercity",  n:"Foster City",              a:"1001 Metro Center Blvd",    c:"Foster City",          p:"6502860739", mi:42},
+    {id:"tracy",       n:"Tracy",                    a:"3250 W Grant Line Rd",      c:"Tracy",                p:"2098305340", mi:42},
     {id:"napa",        n:"Napa",                     a:"280 Riversound Way",        c:"Napa",                 p:"7078195900", mi:43},
     {id:"santaclara",  n:"Santa Clara",              a:"1601 Coleman Ave",          c:"Santa Clara",          p:"4085679000", mi:44},
     {id:"sjne",        n:"San Jose — Automation Pkwy",a:"1709 Automation Pkwy",     c:"San Jose",             p:"4086782150", mi:45},
     {id:"redwoodcity", n:"Redwood City",             a:"2300 Middlefield Rd",       c:"Redwood City",         p:"6505684040", mi:46},
     {id:"sunnyvale",   n:"Sunnyvale",                a:"150 Lawrence Station Rd",   c:"Sunnyvale",            p:"4087301892", mi:47},
     {id:"mountainview",n:"Mountain View",            a:"1000 N Rengstorff Ave",     c:"Mountain View",        p:"6509881841", mi:48},
+    {id:"vacaville",   n:"Vacaville",                a:"1051 Hume Way",             c:"Vacaville",            p:"7074537343", mi:48},
     {id:"sjsenter",    n:"San Jose — Senter Rd",     a:"2201 Senter Rd",            c:"San Jose",             p:"4082750199", mi:50},
     {id:"sjalmaden",   n:"San Jose — Almaden",       a:"5301 Almaden Expy",         c:"San Jose",             p:"4087230964", mi:55},
+    {id:"stockton",    n:"Stockton",                 a:"1616 E Hammer Ln",          c:"Stockton",             p:"2094782040", mi:57},
+    {id:"manteca",     n:"Manteca",                  a:"2440 Daniels St",           c:"Manteca",              p:"2098258200", mi:58},
     {id:"rohnertpark", n:"Rohnert Park",             a:"5901 Redwood Dr",           c:"Rohnert Park",         p:"7075409113", mi:62},
+    {id:"lodi",        n:"Lodi",                     a:"2680 Reynolds Ranch Pkwy",  c:"Lodi",                 p:"2093667300", mi:65},
     {id:"santarosa",   n:"Santa Rosa",               a:"1900 Santa Rosa Ave",       c:"Santa Rosa",           p:"7075783775", mi:68},
     {id:"morganhill",  n:"Morgan Hill",              a:"820 E Dunne Ave #100",      c:"Morgan Hill",          p:"4087822131", mi:68},
-    {id:"gilroy",      n:"Gilroy",                   a:"7251 Camino Arroyo",        c:"Gilroy",               p:"4088480700", mi:78}
+    {id:"modesto",     n:"Modesto",                  a:"3801 Pelandale Ave",        c:"Modesto",              p:"2093424903", mi:72},
+    {id:"elkgrove",    n:"Elk Grove",                a:"7400 Elk Grove Blvd",       c:"Elk Grove",            p:"9164656050", mi:72},
+    {id:"sacflorin",   n:"Sacramento — Florin Rd",   a:"8484 Florin Rd",            c:"Sacramento",           p:"9167391045", mi:75},
+    {id:"gilroy",      n:"Gilroy",                   a:"7251 Camino Arroyo",        c:"Gilroy",               p:"4088480700", mi:78},
+    {id:"saccalexpo",  n:"Sacramento — Cal Expo",    a:"1600 Expo Pkwy",            c:"Sacramento",           p:"9168301078", mi:78},
+    {id:"sacbc",       n:"Sacramento Business Center",a:"3360 El Camino Ave",       c:"Sacramento",           p:"9164264556", mi:80, bc:true},
+    {id:"sacnatomas",  n:"Sacramento — Natomas",     a:"3881 E Commerce Way",       c:"Sacramento",           p:"9162659594", mi:80},
+    {id:"woodland",    n:"Woodland",                 a:"2299 Bronze Star Dr",       c:"Woodland",             p:"5304062120", mi:82},
+    {id:"roseville",   n:"Roseville",                a:"6750 Stanford Ranch Rd",    c:"Roseville",            p:"9167891485", mi:92},
+    {id:"salinas",     n:"Salinas",                  a:"1339 N Davis Rd",           c:"Salinas",              p:"8314244242", mi:93},
+    {id:"folsom",      n:"Folsom",                   a:"1800 Cavitt Dr",            c:"Folsom",               p:"9168501000", mi:95},
+    {id:"sandcity",    n:"Sand City (Monterey)",     a:"801 Tioga Ave",             c:"Sand City",            p:"8318991255", mi:100}
   ];
 
   /* ---- shared cloud store (Supabase) — same tables the dashboard reads ---- */

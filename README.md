@@ -3,7 +3,7 @@
 A single-page phone tool for phoning Bay Area Costco warehouses and recording 1 oz gold bar
 stock, one store at a time.
 
-- 28 warehouses, ordered by driving distance from Walnut Creek, CA
+- 45 warehouses within 100 miles, ordered by driving distance from Walnut Creek, CA
 - One shared shelf price at the top (Costco charges the same at every warehouse)
 - Per-store Pamp and Generic bar counts with a running total
 - Status at a glance: not called / has bars / no stock / **day old** / older, each timestamped
