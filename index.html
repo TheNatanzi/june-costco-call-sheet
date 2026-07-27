@@ -294,15 +294,10 @@
       </div>
       <span class="pc-when" id="priceWhen">Not set yet — put today's shelf price in first.</span>
     </div>
+    <!-- The "which bar is this price for" picker is gone: Costco charges the same for a
+         Pamp and a Generic 1 oz bar, so there was only ever one price to record. The
+         per-store Pamp/Generic COUNTS stay — those two resell for different amounts. -->
     <div class="pc-r">
-      <div class="f">
-        <span class="lab">Which bar is this price for</span>
-        <div class="seg sm" role="group" aria-label="Bar type">
-          <button type="button" data-act="pkind" data-v="Pamp" aria-pressed="false">Pamp</button>
-          <button type="button" data-act="pkind" data-v="Generic" aria-pressed="false">Generic</button>
-          <button type="button" data-act="pkind" data-v="Both" aria-pressed="false">Same both</button>
-        </div>
-      </div>
       <button class="btn gold" id="priceSave" type="button">✓ Save today's price</button>
     </div>
   </div>
@@ -349,7 +344,6 @@
   <div class="tools">
     <div class="chips" role="group" aria-label="Filter stores">
       <button class="chip" type="button" data-f="todo"  aria-pressed="true">To call <span class="cnt" id="cTodo">0</span></button>
-      <button class="chip" type="button" data-f="day"   aria-pressed="false"><span class="swatch" style="background:var(--day-line)"></span>Day old <span class="cnt" id="cDay">0</span></button>
       <button class="chip" type="button" data-f="done"  aria-pressed="false">Done today <span class="cnt" id="cDone">0</span></button>
       <button class="chip" type="button" data-f="all"   aria-pressed="false">All 45</button>
     </div>
@@ -358,8 +352,8 @@
   <div class="sortbar">
     <label class="sortlab" for="sortSel">Sort</label>
     <select id="sortSel">
-      <option value="smart">Today first, nearest — day-old at the bottom</option>
       <option value="distance">Distance — nearest to Walnut Creek</option>
+      <option value="smart">Today first, nearest — day-old at the bottom</option>
       <option value="name">Name — A to Z</option>
       <option value="bars">Inventory — most bars first</option>
     </select>
@@ -464,10 +458,10 @@
   let data  = loadJSON(KEY, {});         // {storeId:{stock,pamp,generic,note,t}}
   let price = loadJSON(PRICE_KEY, null); // {v,kind,t}
   let filter = "todo";
-  let sortBy = localStorage.getItem(SORT_KEY) || "smart";
+  // Distance is the default — nearest Costco first is the order June actually calls in.
+  let sortBy = localStorage.getItem(SORT_KEY) || "distance";
   let query  = "";
   let openId = null;
-  let pendKind = price && price.kind ? price.kind : "";
   // True once June edits the price box and until she actually saves it.
   let priceDirty = false;
   let online = null;                     // null = unknown, true/false once tested
@@ -680,7 +674,7 @@
   function pushPrice(){
     if(!price) return Promise.resolve(false);
     setSync("busy");
-    const body = {id:1, price:price.v, bar_type:price.kind||"", updated_at:price.t, updated_by:WHO};
+    const body = {id:1, price:price.v, bar_type:"", updated_at:price.t, updated_by:WHO};
     return sbFetch(SB_URL+"/rest/v1/alchemy_price?on_conflict=id", {
       method:"POST",
       headers:sbHeaders({Prefer:"resolution=merge-duplicates,return=minimal"}),
@@ -771,8 +765,7 @@
         const r0 = prow[0], pv = Number(r0.price);
         if(isFinite(pv) && pv > 0 && r0.updated_at && !isNaN(new Date(r0.updated_at))){
           if(!price || !price.t || new Date(r0.updated_at) > new Date(price.t)){
-            price = {v:pv, kind:r0.bar_type||"", t:r0.updated_at};
-            pendKind = price.kind;
+            price = {v:pv, t:r0.updated_at};
             persist(PRICE_KEY, price);
             changed = true;
           }
@@ -810,14 +803,11 @@
        become his BUY. `priceDirty` is cleared only by an actual save. */
     if(document.activeElement !== input && !priceDirty)
       input.value = price && price.v != null ? price.v : "";
-    document.querySelectorAll('[data-act="pkind"]').forEach(function(b){
-      b.setAttribute("aria-pressed", String(b.dataset.v === pendKind));
-    });
     if(!price || price.v == null){
       when.textContent = "Not set yet — put today's shelf price in first.";
       return;
     }
-    const label = (price.kind ? price.kind + " · " : "") + "set " + whenTxt(price.t);
+    const label = "set " + whenTxt(price.t);
     if(bucket === "day"){
       card.classList.add("day"); when.classList.add("day");
       when.textContent = "⚠ " + label + " — a day old. Check today's price before you start calling.";
@@ -843,7 +833,7 @@
       $("priceIn").focus(); $("priceIn").select();
       return;
     }
-    price = {v:Number(v), kind:pendKind || "Pamp", t:new Date().toISOString()};
+    price = {v:Number(v), t:new Date().toISOString()};
     priceDirty = false;                 // saved - the box may track the stored value again
     persist(PRICE_KEY, price);
     renderPrice(); renderBand();
@@ -868,8 +858,12 @@
       const st = statusOf(s.id);
       let okF;
       if(filter === "all")       okF = true;
-      else if(filter === "todo") okF = (st === "todo" || st === "stale");
-      else if(filter === "day")  okF = (st === "day");
+      // A day-old count needs re-checking, so it belongs in the call queue rather than in
+      // a bucket of its own. The row keeps its yellow tint and the numbers June recorded -
+      // she can see what it WAS while she re-calls it. This also matches nextToCall(),
+      // which always included day-old stores; the separate chip used to hide the very
+      // store "Next to call" was pointing at.
+      else if(filter === "todo") okF = (st === "todo" || st === "stale" || st === "day");
       else                       okF = (st === "done" || st === "noans");
       if(!okF) return false;
       if(!query) return true;
@@ -1055,8 +1049,8 @@
     $("stPamp").textContent  = pamp;
     $("stGen").textContent   = gen;
     $("stBars").textContent  = pamp + gen;
-    $("cTodo").textContent   = todo + stale;
-    $("cDay").textContent    = day;
+    // Day-old stores are part of the call queue now, so they count toward "To call".
+    $("cTodo").textContent   = todo + stale + day;
     $("cDone").textContent   = done;
     $("savedCount").textContent = saved;
 
@@ -1210,7 +1204,6 @@
   function rowsCSV(){
     const out = [];
     out.push("price," + (price && price.v != null ? Number(price.v).toFixed(2) : ""));
-    out.push("price_type," + (price && price.kind ? price.kind : ""));
     out.push("price_at," + (price && price.t ? price.t : ""));
     out.push("");
     out.push(HEADER);
@@ -1247,7 +1240,7 @@
     return "JUNE'S COSTCO ROUND — " + new Date().toLocaleString("en-US",
         {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) + "\n" +
       "Costco price: " + (price && price.v != null
-        ? money(price.v) + (price.kind ? " (" + price.kind + ")" : "") + " · set " + whenTxt(price.t)
+        ? money(price.v) + " · set " + whenTxt(price.t)
         : "NOT SET") + "\n" +
       filled.length + " of " + STORES.length + " called · " + stocked + " have bars · " +
         (pamp+gen) + " bars total (" + pamp + " Pamp / " + gen + " Generic)" +
@@ -1339,14 +1332,6 @@
     }
 
     const act = btn.dataset.act;
-    if(act === "pkind"){
-      pendKind = btn.dataset.v;
-      document.querySelectorAll('[data-act="pkind"]').forEach(function(b){
-        b.setAttribute("aria-pressed", String(b === btn));
-      });
-      return;
-    }
-
     const row = btn.closest(".row");
     const id  = btn.dataset.id || (row && row.dataset.id);
     if(!id) return;
