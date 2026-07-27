@@ -468,6 +468,8 @@
   let query  = "";
   let openId = null;
   let pendKind = price && price.kind ? price.kind : "";
+  // True once June edits the price box and until she actually saves it.
+  let priceDirty = false;
   let online = null;                     // null = unknown, true/false once tested
   // Stores saved while the signal was dead. Retried on every sync tick so a call June
   // logged in a Costco parking lot still reaches Medi once she has bars again.
@@ -544,13 +546,81 @@
     if(extra) Object.keys(extra).forEach(function(k){ h[k]=extra[k]; });
     return h;
   }
+
+  /* Every request goes through here so nothing can hang forever or fail silently.
+     Returns {kind, status, data, permanent}. "permanent" means the shared list REFUSED
+     the value (a 4xx) — retrying that forever would spin the queue for nothing, so the
+     caller drops it from the retry list and tells June what to fix instead. */
+  const SB_TIMEOUT = 8000;
+  function sbFetch(url, opts){
+    const o = Object.assign({}, opts||{});
+    let ctl = null, timer = null;
+    if(typeof AbortController === "function"){
+      ctl = new AbortController(); o.signal = ctl.signal;
+      timer = setTimeout(function(){ try{ ctl.abort(); }catch(e){} }, SB_TIMEOUT);
+    }
+    // Belt AND braces. Aborting only works if fetch honours the signal; a request that
+    // never settles at all would otherwise leave the badge stuck on "sending…" forever,
+    // which would tell June her call is still going out when nothing is happening.
+    const guard = new Promise(function(res){
+      setTimeout(function(){ res({kind:"timeout", status:0}); }, SB_TIMEOUT + 250);
+    });
+    const req = fetch(url, o).then(function(r){
+      if(timer) clearTimeout(timer);
+      if(!r.ok){
+        return r.text().then(function(t){
+          return {kind:"http", status:r.status, body:t||"", permanent:r.status>=400 && r.status<500};
+        }, function(){
+          return {kind:"http", status:r.status, body:"", permanent:r.status>=400 && r.status<500};
+        });
+      }
+      if(o.method && o.method !== "GET") return {kind:"ok", status:r.status, data:null};
+      return r.json().then(function(j){ return {kind:"ok", status:r.status, data:j}; },
+                          function(){ return {kind:"parse", status:r.status}; });
+    }, function(err){
+      if(timer) clearTimeout(timer);
+      const aborted = err && (err.name === "AbortError" || /abort/i.test(String(err && err.message)));
+      return {kind: aborted ? "timeout" : "network", status:0};
+    });
+    return Promise.race([req, guard]);
+  }
+
+  /* Append-only history. Every save June makes is also inserted here and never changed,
+     so a "start a fresh round" or an overwrite by Medi can always be recovered. A failed
+     log write is ignored on purpose — the log is insurance, it must never block a save. */
+  function logCall(body){
+    sbFetch(SB_URL+"/rest/v1/alchemy_calls_log", {
+      method:"POST", headers:sbHeaders({Prefer:"return=minimal"}), body:JSON.stringify(body)
+    });
+  }
+  function logPrice(body){
+    sbFetch(SB_URL+"/rest/v1/alchemy_price_log", {
+      method:"POST", headers:sbHeaders({Prefer:"return=minimal"}),
+      body:JSON.stringify({price:body.price, bar_type:body.bar_type,
+                           updated_at:body.updated_at, updated_by:body.updated_by})
+    });
+  }
+
+  /* Plain words for every way a save can fail. June never sees a status code. */
+  function saveErrMsg(r){
+    if(r.kind === "timeout") return "The connection is too slow right now — it will send itself when the signal is better.";
+    if(r.kind === "network") return "No signal — it's saved on this phone and will send itself later.";
+    if(r.kind === "http" && r.permanent){
+      const b = String(r.body||"");
+      if(/pamp_sane|generic_sane/.test(b)) return "That bar count can't be right — use a whole number from 0 to 500.";
+      if(/price_sane/.test(b))             return "That price can't be right — it has to be between $500 and $20,000.";
+      return "Medi's list wouldn't accept that entry — one of the numbers is out of range.";
+    }
+    return "Couldn't send it just now — it's safe on this phone and will retry.";
+  }
   function setSync(state, note){
     const pill = $("syncPill"), foot = $("syncFoot");
     const waiting = unsynced.length + (priceUnsynced ? 1 : 0);
     pill.className = "sync " + state;
     pill.textContent = state==="busy" ? "↑ sending…"
                      : state==="on" ? (waiting ? "☁ " + waiting + " still to send" : "☁ synced with Medi")
-                     : "⚠ offline — " + (waiting || "everything") + " saved on this phone";
+                     : (waiting ? "⚠ offline — " + waiting + " saved on this phone"
+                                : "⚠ offline — everything here is saved on this phone");
     if(foot) foot.textContent = note || "";
   }
   function markUnsynced(id, failed){
@@ -573,25 +643,36 @@
     const s = storeById(id), e = data[id];
     if(!s || !e) return Promise.resolve(false);
     setSync("busy");
-    return fetch(SB_URL+"/rest/v1/alchemy_calls?on_conflict=store_id", {
+    const body = {
+      store_id:s.id, store_name:s.n, city:s.c, miles:s.mi,
+      in_stock:e.stock==="yes",
+      pamp:e.stock==="yes"?nnum(e.pamp):0,
+      generic:e.stock==="yes"?nnum(e.generic):0,
+      note:e.note||"", called_at:e.t, called_by:WHO
+    };
+    return sbFetch(SB_URL+"/rest/v1/alchemy_calls?on_conflict=store_id", {
       method:"POST",
       headers:sbHeaders({Prefer:"resolution=merge-duplicates,return=minimal"}),
-      body:JSON.stringify({
-        store_id:s.id, store_name:s.n, city:s.c, miles:s.mi,
-        in_stock:e.stock==="yes",
-        pamp:e.stock==="yes"?nnum(e.pamp):0,
-        generic:e.stock==="yes"?nnum(e.generic):0,
-        note:e.note||"", called_at:e.t, called_by:WHO
-      })
+      body:JSON.stringify(body)
     }).then(function(r){
-      const ok = r.ok; online = ok;
-      markUnsynced(id, !ok);
-      setSync(ok?"on":"off", ok?("last sent "+whenTxt(new Date().toISOString())):"couldn't send — it will retry on its own");
-      return ok;
-    }).catch(function(){
+      if(r.kind === "ok"){
+        online = true;
+        markUnsynced(id, false);
+        logCall(body);
+        setSync("on", "last sent " + whenTxt(new Date().toISOString()));
+        return true;
+      }
+      // A refused value will NEVER succeed on retry — drop it from the queue and say why,
+      // instead of spinning forever behind a badge that claims it is "still to send".
+      if(r.permanent){
+        markUnsynced(id, false);
+        setSync("on", "that one wasn't accepted — see the message above");
+        toast(saveErrMsg(r));
+        return false;
+      }
       online = false;
       markUnsynced(id, true);
-      setSync("off","no signal — it will send itself when you're back online");
+      setSync("off", saveErrMsg(r));
       return false;
     });
   }
@@ -599,18 +680,25 @@
   function pushPrice(){
     if(!price) return Promise.resolve(false);
     setSync("busy");
-    return fetch(SB_URL+"/rest/v1/alchemy_price?on_conflict=id", {
+    const body = {id:1, price:price.v, bar_type:price.kind||"", updated_at:price.t, updated_by:WHO};
+    return sbFetch(SB_URL+"/rest/v1/alchemy_price?on_conflict=id", {
       method:"POST",
       headers:sbHeaders({Prefer:"resolution=merge-duplicates,return=minimal"}),
-      body:JSON.stringify({id:1, price:price.v, bar_type:price.kind||"", updated_at:price.t, updated_by:WHO})
+      body:JSON.stringify(body)
     }).then(function(r){
-      const ok = r.ok; online = ok;
-      markPriceUnsynced(!ok);
-      setSync(ok?"on":"off", ok?"price sent to Medi":"couldn't send — it will retry on its own");
-      return ok;
-    }).catch(function(){
+      if(r.kind === "ok"){
+        online = true; markPriceUnsynced(false); logPrice(body);
+        setSync("on", "price sent to Medi");
+        return true;
+      }
+      if(r.permanent){
+        markPriceUnsynced(false);
+        setSync("on", "that price wasn't accepted — see the message above");
+        toast(saveErrMsg(r));
+        return false;
+      }
       online = false; markPriceUnsynced(true);
-      setSync("off","no signal — it will send itself when you're back online");
+      setSync("off", saveErrMsg(r));
       return false;
     });
   }
@@ -618,53 +706,92 @@
   // Deleting has to reach the shared list too — a local-only delete would be undone by the
   // very next read, which would look to June like the app ignored her.
   function deleteCall(id){
-    return fetch(SB_URL+"/rest/v1/alchemy_calls?store_id=eq."+encodeURIComponent(id), {
+    return sbFetch(SB_URL+"/rest/v1/alchemy_calls?store_id=eq."+encodeURIComponent(id), {
       method:"DELETE", headers:sbHeaders({Prefer:"return=minimal"})
-    }).then(function(r){ return r.ok; }).catch(function(){ return false; });
+    }).then(function(r){ return r.kind === "ok"; }, function(){ return false; });
   }
   function deleteAllCalls(){
-    return fetch(SB_URL+"/rest/v1/alchemy_calls?store_id=not.is.null", {
+    return sbFetch(SB_URL+"/rest/v1/alchemy_calls?store_id=not.is.null", {
       method:"DELETE", headers:sbHeaders({Prefer:"return=minimal"})
-    }).then(function(r){ return r.ok; }).catch(function(){ return false; });
+    }).then(function(r){ return r.kind === "ok"; });
   }
 
   // Pull whatever is already in the cloud (Medi may have logged calls himself) and merge
   // newest-wins, so the two of them never overwrite each other's fresher entry.
   function pullAll(){
     return Promise.all([
-      fetch(SB_URL+"/rest/v1/alchemy_calls?select=*", {headers:sbHeaders()}).then(function(r){ return r.ok?r.json():null; }),
-      fetch(SB_URL+"/rest/v1/alchemy_price?select=*&id=eq.1", {headers:sbHeaders()}).then(function(r){ return r.ok?r.json():null; })
+      sbFetch(SB_URL+"/rest/v1/alchemy_calls?select=*", {headers:sbHeaders()}),
+      sbFetch(SB_URL+"/rest/v1/alchemy_price?select=*&id=eq.1", {headers:sbHeaders()})
     ]).then(function(res){
-      const calls = res[0], prow = res[1];
-      if(calls===null && prow===null){ online=false; setSync("off","couldn't reach the shared list"); return false; }
+      const a = res[0], b = res[1];
+      // If the store list itself failed, do NOT report "in sync" just because the one-row
+      // price query got through — nothing of Medi's has actually been merged.
+      if(a.kind !== "ok" && b.kind === "ok"){
+        online = false;
+        setSync("off", a.kind === "timeout"
+          ? "the shared list is too slow to answer — everything here is still saved"
+          : "couldn't read the shared list — everything here is still saved on this phone");
+        return false;
+      }
+      if(a.kind !== "ok" && b.kind !== "ok"){
+        online = false;
+        setSync("off", a.kind === "timeout"
+          ? "the shared list is too slow to answer — everything here is still saved"
+          : "can't reach the shared list — everything here is still saved on this phone");
+        return false;
+      }
       online = true;
-      let changed = false;
-      (calls||[]).forEach(function(row){
-        const local = data[row.store_id];
+      const calls = (a.kind === "ok" && Array.isArray(a.data)) ? a.data : [];
+      const prow  = (b.kind === "ok" && Array.isArray(b.data)) ? b.data : [];
+      let changed = false, unreadable = 0, foreign = 0;
+      calls.forEach(function(row){
+        // A row we cannot read, or one for a warehouse that is not on this list, must not
+        // be written into June's phone — it would sit there forever, invisible and unfixable.
+        if(!row || typeof row !== "object"){ unreadable++; return; }
+        const id = row.store_id == null ? "" : String(row.store_id);
+        if(!id){ unreadable++; return; }
+        if(!storeById(id)){ foreign++; return; }
+        if(!row.called_at || isNaN(new Date(row.called_at))){ unreadable++; return; }
+        const local = data[id];
         if(!local || !local.t || new Date(row.called_at) > new Date(local.t)){
-          data[row.store_id] = {
+          // Coerce the counts. They are written straight into a value="" attribute when the
+          // row is opened, so anything non-numeric arriving from the shared list would land
+          // unescaped in markup.
+          const n = function(v){ if(v==null||v==="") return null;
+                                 const x=Number(v); return isFinite(x)?x:null; };
+          data[id] = {
             stock: row.in_stock ? "yes" : "no",
-            pamp: row.pamp, generic: row.generic,
+            pamp: n(row.pamp), generic: n(row.generic),
             note: row.note || "", t: row.called_at
           };
           changed = true;
         }
       });
-      if(prow && prow[0]){
-        const r0 = prow[0];
-        if(!price || !price.t || new Date(r0.updated_at) > new Date(price.t)){
-          price = {v:Number(r0.price), kind:r0.bar_type||"", t:r0.updated_at};
-          pendKind = price.kind;
-          persist(PRICE_KEY, price);
-          changed = true;
-        }
+      if(prow[0]){
+        const r0 = prow[0], pv = Number(r0.price);
+        if(isFinite(pv) && pv > 0 && r0.updated_at && !isNaN(new Date(r0.updated_at))){
+          if(!price || !price.t || new Date(r0.updated_at) > new Date(price.t)){
+            price = {v:pv, kind:r0.bar_type||"", t:r0.updated_at};
+            pendKind = price.kind;
+            persist(PRICE_KEY, price);
+            changed = true;
+          }
+        } else { unreadable++; }
       }
+      // Drop anything on this phone that is no longer one of the warehouses on the list.
+      // Left alone it would be invisible in the app but still counted in "start a fresh round".
+      Object.keys(data).forEach(function(k){
+        if(!storeById(k)){ delete data[k]; markUnsynced(k, false); changed = true; }
+      });
       if(changed){ persist(KEY, data); renderPrice(); render(); }
-      setSync("on","in sync with Medi");
+      const notes = [];
+      if(unreadable) notes.push(unreadable + " entr" + (unreadable===1?"y":"ies") + " couldn't be read");
+      if(foreign)    notes.push(foreign + " entr" + (foreign===1?"y is":"ies are") + " for a store that's not on this list");
+      setSync("on", notes.length ? ("in sync with Medi · " + notes.join(" · ")) : "in sync with Medi");
       flushUnsynced();          // the signal is back — send anything that got stuck
       return true;
     }).catch(function(){
-      online = false; setSync("off","couldn't reach the shared list");
+      online = false; setSync("off","couldn't reach the shared list — everything here is still saved");
       return false;
     });
   }
@@ -675,7 +802,14 @@
     const bucket = price && price.t ? ageBucket(price.t) : "todo";
     card.classList.remove("day","stale");
     when.classList.remove("day","stale");
-    if(document.activeElement !== input) input.value = price && price.v != null ? price.v : "";
+    /* Never overwrite a price June has typed but not yet saved. The focus test alone was not
+       enough: the 60s poll fires whenever no store form is open, so typing the price and then
+       tapping the search box or a filter chip lost it. Worse, if a previous round's price was
+       on file the box silently reverted to THAT number while still inviting a save — one tap
+       would have pushed yesterday's price to Medi with today's timestamp, and it would have
+       become his BUY. `priceDirty` is cleared only by an actual save. */
+    if(document.activeElement !== input && !priceDirty)
+      input.value = price && price.v != null ? price.v : "";
     document.querySelectorAll('[data-act="pkind"]').forEach(function(b){
       b.setAttribute("aria-pressed", String(b.dataset.v === pendKind));
     });
@@ -702,7 +836,15 @@
       $("priceIn").focus();
       return;
     }
+    // Same bounds the shared list enforces. A slipped digit here would poison Medi's
+    // whole profit calculation, so it is caught before it can travel.
+    if(Number(v) < 500 || Number(v) > 20000){
+      toast("That price doesn't look right — a 1 oz bar is between $500 and $20,000");
+      $("priceIn").focus(); $("priceIn").select();
+      return;
+    }
     price = {v:Number(v), kind:pendKind || "Pamp", t:new Date().toISOString()};
+    priceDirty = false;                 // saved - the box may track the stored value again
     persist(PRICE_KEY, price);
     renderPrice(); renderBand();
     toast("Price saved — " + money(price.v));
@@ -759,7 +901,28 @@
   }
 
   /* ---------- render ---------- */
+  /* Anything June has typed into the open form but not yet saved lives ONLY in the DOM.
+     render() replaces the whole list, so filtering, searching or re-sorting mid-call used
+     to silently revert her counts and note while leaving the row open and still showing
+     "Yes, in stock" — she had no way to tell the numbers had gone. Snapshot the live
+     inputs first; formHTML() reads them back. */
+  let pendEdit = null;
+  function captureOpenForm(){
+    if(!openId) { pendEdit = null; return; }
+    const p = $("pamp_" + openId), g = $("gen_" + openId), n = $("note_" + openId);
+    if(!p && !g && !n) return;                 // form isn't on screen; keep what we had
+    pendEdit = {id:openId,
+                pamp: p ? p.value : "",
+                generic: g ? g.value : "",
+                note: n ? n.value : ""};
+  }
+  function pendFor(id, field, fallback){
+    if(pendEdit && pendEdit.id === id) return pendEdit[field];
+    return fallback;
+  }
+
   function render(){
+    captureOpenForm();
     const rows = visible();
     $("list").innerHTML = rows.map(function(s){
       const st = statusOf(s.id), e = data[s.id] || {};
@@ -819,21 +982,26 @@
             '<label class="lab" for="pamp_' + s.id + '">Pamp bars</label>' +
             '<input id="pamp_' + s.id + '" class="barin" data-store="' + s.id + '" type="number" ' +
                    'inputmode="numeric" min="0" step="1" placeholder="0" ' +
-                   'value="' + (e.pamp != null ? e.pamp : "") + '">' +
+                   'value="' + esc(pendFor(s.id, "pamp", e.pamp != null ? e.pamp : "")) + '">' +
           '</div>' +
           '<div class="f">' +
             '<label class="lab" for="gen_' + s.id + '">Generic bars</label>' +
             '<input id="gen_' + s.id + '" class="barin" data-store="' + s.id + '" type="number" ' +
                    'inputmode="numeric" min="0" step="1" placeholder="0" ' +
-                   'value="' + (e.generic != null ? e.generic : "") + '">' +
+                   'value="' + esc(pendFor(s.id, "generic", e.generic != null ? e.generic : "")) + '">' +
           '</div>' +
         '</div>' +
-        '<div class="bartot" id="tot_' + s.id + '">Total on hand: ' + barsOf(e) + ' bars</div>' +
+        // Read from the same snapshot the boxes above use, or the strip contradicts them
+        // after a re-render: boxes showing 5 and 3, total showing 0.
+        '<div class="bartot" id="tot_' + s.id + '">Total on hand: ' +
+          (nnum(pendFor(s.id,"pamp", e.pamp)) + nnum(pendFor(s.id,"generic", e.generic))) +
+          ' bars</div>' +
       '</div>' +
 
       '<div class="f">' +
         '<label class="lab" for="note_' + s.id + '">Notes (limit per member? restock day? who you spoke to?)</label>' +
-        '<textarea id="note_' + s.id + '" placeholder="e.g. 2 per member, restocks Tuesday, spoke to Ana">' + esc(e.note || "") + '</textarea>' +
+        '<textarea id="note_' + s.id + '" placeholder="e.g. 2 per member, restocks Tuesday, spoke to Ana">' +
+          esc(pendFor(s.id, "note", e.note || "")) + '</textarea>' +
       '</div>' +
 
       '<div class="factions">' +
@@ -848,7 +1016,7 @@
   }
 
   function renderBand(){
-    let done=0, day=0, stale=0, todo=0, saved=0, stocked=0, pamp=0, gen=0;
+    let done=0, day=0, stale=0, todo=0, saved=0, stocked=0, pamp=0, gen=0, noCount=0;
     STORES.forEach(function(s){
       const st = statusOf(s.id), e = data[s.id];
       if(e && e.t) saved++;
@@ -856,9 +1024,16 @@
       else if(st==="day") day++;
       else if(st==="stale") stale++;
       else todo++;
-      // Only warehouses called inside the last 2 days count as current stock.
+      // Only warehouses called inside the last 2 days count as current stock — and "yes"
+      // with no number written down is counted SEPARATELY, exactly as the dashboard does it.
+      // When this page counted it as stock and the dashboard didn't, the two screens
+      // disagreed about whether anybody had bars at all.
       if(e && e.t && e.stock==="yes" && st!=="stale"){
-        stocked++; pamp += nnum(e.pamp); gen += nnum(e.generic);
+        if(nnum(e.pamp)+nnum(e.generic) > 0){
+          stocked++; pamp += nnum(e.pamp); gen += nnum(e.generic);
+        } else {
+          noCount++;
+        }
       }
     });
 
@@ -873,7 +1048,10 @@
 
     $("stDone").textContent  = done;
     $("stDay").textContent   = day;
-    $("stStock").textContent = stocked;
+    $("stStock").textContent = stocked + (noCount ? " +" + noCount + "?" : "");
+    $("stStock").title = noCount
+      ? stocked + " with a bar count, plus " + noCount + " that said yes without a number"
+      : stocked + " with bars";
     $("stPamp").textContent  = pamp;
     $("stGen").textContent   = gen;
     $("stBars").textContent  = pamp + gen;
@@ -894,12 +1072,44 @@
 
   /* ---------- open / close ---------- */
   function openStore(id, scroll){
+    // Moving to a different store (or closing this one) deliberately abandons unsaved
+    // typing — carrying it across would put one warehouse's counts into another's boxes.
+    captureOpenForm();
+    const wasOpen = openId;
     openId = (openId === id) ? null : id;
+    if(openId !== wasOpen) pendEdit = null;
     render();
     if(openId && scroll !== false){
       const el = document.querySelector('.row[data-id="' + openId + '"]');
       if(el) el.scrollIntoView({behavior:"smooth", block:"center"});
     }
+  }
+
+  /* Bar counts must be whole numbers from 0 to 500 — the same rule the shared list
+     enforces. Checking it here means June gets a sentence she can act on instead of a
+     rejected save. Blank still means "not entered", which is not an error. */
+  function readBars(el){
+    if(!el || el.value === "") return {v:null, bad:false};
+    const n = Number(el.value);
+    if(!isFinite(n) || n < 0 || n > 500 || Math.floor(n) !== n) return {v:null, bad:true};
+    return {v:n, bad:false};
+  }
+
+  /* Has Medi written this store since the copy on this phone? Two people calling the
+     same warehouse minutes apart used to overwrite each other with no warning. */
+  function conflictCheck(id){
+    const mine = data[id];
+    return sbFetch(SB_URL+"/rest/v1/alchemy_calls?select=*&store_id=eq."+encodeURIComponent(id),
+                   {headers:sbHeaders()}).then(function(r){
+      if(r.kind !== "ok" || !Array.isArray(r.data) || !r.data.length) return null;
+      const srv = r.data[0];
+      const srvT = new Date(srv.called_at).getTime();
+      if(isNaN(srvT)) return null;
+      const mineT = (mine && mine.t) ? new Date(mine.t).getTime() : 0;
+      if(srvT <= mineT) return null;              // nothing newer than what I already have
+      if((srv.called_by||"") === WHO) return null; // my own earlier save
+      return srv;
+    }, function(){ return null; });                // offline → save anyway, queue handles it
   }
 
   /* ---------- save a store ---------- */
@@ -908,17 +1118,72 @@
     const stock = cur._pendStock || cur.stock || "";
     if(!stock){ toast("Tap Yes or No first — do they have bars?"); return; }
     const pEl = $("pamp_" + id), gEl = $("gen_" + id), noteEl = $("note_" + id);
-    data[id] = {
+
+    const rp = readBars(pEl), rg = readBars(gEl);
+    if(stock === "yes" && (rp.bad || rg.bad)){
+      toast("Bar counts have to be whole numbers from 0 to 500");
+      const bad = rp.bad ? pEl : gEl;
+      if(bad){ bad.focus(); bad.select && bad.select(); }
+      return;
+    }
+
+    const rec = {
       stock: stock,
-      pamp:  stock === "no" ? 0 : (pEl && pEl.value !== "" ? Number(pEl.value) : null),
-      generic: stock === "no" ? 0 : (gEl && gEl.value !== "" ? Number(gEl.value) : null),
+      pamp:  stock === "no" ? 0 : rp.v,
+      generic: stock === "no" ? 0 : rg.v,
       note:  noteEl ? noteEl.value.trim() : "",
       t:     new Date().toISOString()
     };
+
+    const nm = (storeById(id) || {}).n || "Store";
+
+    // "Yes" with both boxes empty is real information (they have some, she didn't get a
+    // number) but it can't be added up, so Medi sees it counted separately. Say so once,
+    // rather than letting it look like a zero.
+    if(stock === "yes" && rp.v == null && rg.v == null){
+      toast("Saved as “they have bars, count unknown” — add a number if you got one");
+    }
+
+    // Ask before stepping on a fresher entry from Medi. Save-and-continue either way —
+    // every version is kept in the history log, so nothing is destroyed by this choice.
+    conflictCheck(id).then(function(srv){
+      if(srv){
+        const theirs = srv.in_stock
+          ? (nnum(srv.pamp)+nnum(srv.generic)) + " bars (" + nnum(srv.pamp) + "P / " + nnum(srv.generic) + "G)"
+          : "sold out";
+        const mineTxt = stock === "yes"
+          ? (nnum(rec.pamp)+nnum(rec.generic)) + " bars (" + nnum(rec.pamp) + "P / " + nnum(rec.generic) + "G)"
+          : "sold out";
+        const go = confirm(
+          "Medi already logged " + nm + " " + whenTxt(srv.called_at) + ".\n\n" +
+          "His:   " + theirs + "\n" +
+          "Yours: " + mineTxt + "\n\n" +
+          "OK = use yours instead.\nCancel = keep his and throw yours away.");
+        if(!go){
+          // Keep June's discarded count in the append-only history anyway — she typed it,
+          // so it should never simply evaporate because Medi got there first.
+          const s = storeById(id);
+          if(s) logCall({store_id:s.id, store_name:s.n, city:s.c, miles:s.mi,
+                         in_stock:rec.stock==="yes",
+                         pamp:rec.stock==="yes"?nnum(rec.pamp):0,
+                         generic:rec.stock==="yes"?nnum(rec.generic):0,
+                         note:rec.note||"", called_at:rec.t, called_by:WHO});
+          pendEdit = null;      // she chose to discard it; don't re-fill the boxes
+          toast("Kept Medi's entry for " + nm + " — yours is in the history");
+          pullAll();
+          return;
+        }
+      }
+      finishSave(id, rec, goNext, nm);
+    });
+  }
+
+  function finishSave(id, rec, goNext, nm){
+    data[id] = rec;
+    pendEdit = null;          // it is saved now; the snapshot must not resurrect old typing
     persist(KEY, data);
     pushCall(id);
 
-    const nm = (storeById(id) || {}).n || "Store";
     if(goNext){
       const nx = nextToCall();
       openId = nx ? nx.id : null;
@@ -968,11 +1233,15 @@
   function summaryTxt(){
     const filled = STORES.filter(function(s){ return data[s.id] && data[s.id].t; });
     if(!filled.length && !price) return "Nothing filled in yet.";
-    let stocked=0, pamp=0, gen=0;
+    // Same split renderBand() uses. Counting a "yes, no number written down" store as
+    // stocked here made the text June copies to Medi disagree with her own screen.
+    let stocked=0, pamp=0, gen=0, noCount=0;
     filled.forEach(function(s){
       const e = data[s.id];
       if(e.stock === "yes" && statusOf(s.id) !== "stale"){
-        stocked++; pamp += nnum(e.pamp); gen += nnum(e.generic);
+        if(nnum(e.pamp)+nnum(e.generic) > 0){
+          stocked++; pamp += nnum(e.pamp); gen += nnum(e.generic);
+        } else { noCount++; }
       }
     });
     return "JUNE'S COSTCO ROUND — " + new Date().toLocaleString("en-US",
@@ -981,7 +1250,8 @@
         ? money(price.v) + (price.kind ? " (" + price.kind + ")" : "") + " · set " + whenTxt(price.t)
         : "NOT SET") + "\n" +
       filled.length + " of " + STORES.length + " called · " + stocked + " have bars · " +
-        (pamp+gen) + " bars total (" + pamp + " Pamp / " + gen + " Generic)\n\n" + rowsCSV();
+        (pamp+gen) + " bars total (" + pamp + " Pamp / " + gen + " Generic)" +
+        (noCount ? " · " + noCount + " said yes without a count" : "") + "\n\n" + rowsCSV();
   }
 
   function copyOut(){
@@ -1039,8 +1309,16 @@
       return;
     }
     if(btn.id === "resetBtn"){
-      if(confirm("Start a fresh round?\n\nThis wipes all " + Object.keys(data).length +
-                 " recorded stores for BOTH you and Medi. Today's price is kept.")){
+      // Count only stores that were actually SAVED. Tapping Yes/No without saving writes a
+      // _pendStock stub into data[], which used to inflate the "this erases all N" warning.
+      const n = Object.keys(data).filter(function(k){ return data[k] && data[k].t; }).length;
+      if(!n){ toast("Nothing to clear yet"); return; }
+      // Two taps to wipe a whole round. The first one states the damage plainly.
+      if(confirm("⚠ Start a fresh round?\n\nThis erases all " + n + " recorded store" +
+                 (n===1?"":"s") + " for BOTH you and Medi — every bar count you phoned in " +
+                 "today.\n\nToday's price is kept. Every entry stays in the history log, so " +
+                 "Medi can get them back.\n\nAre you sure?")){
+        if(!confirm("Last check — erase all " + n + " store" + (n===1?"":"s") + "?")) return;
         data = {}; persist(KEY, data);
         unsynced = []; try{ localStorage.setItem(UNSYNC_KEY,"[]"); }catch(err){}
         openId = null; render();
@@ -1088,6 +1366,12 @@
     if(act === "save"){     saveStore(id, false); return; }
     if(act === "savenext"){ saveStore(id, true);  return; }
     if(act === "clear"){
+      const nm = (storeById(id) || {}).n || "this store";
+      if(!confirm("Clear " + nm + "?\n\nIt disappears for Medi too and the store goes back to " +
+                  "\"not called\". The entry stays in the history, so it can be brought back if " +
+                  "this was a mistake.")) return;
+      // Drop the unsaved snapshot too, or render() puts her cleared numbers straight back.
+      pendEdit = null; openId = null;
       delete data[id]; persist(KEY, data); markUnsynced(id, false); render();
       deleteCall(id).then(function(ok){ toast(ok ? "Cleared" : "Cleared here — Medi's copy needs signal"); });
       return;
@@ -1113,6 +1397,9 @@
     try{ localStorage.setItem(SORT_KEY, sortBy); }catch(err){}
     render();
   });
+  // Mark the price box dirty the moment she touches it, so no background refresh can
+  // replace what she has typed with the stored (possibly yesterday's) number.
+  $("priceIn").addEventListener("input", function(){ priceDirty = true; });
   $("priceIn").addEventListener("keydown", function(e){
     if(e.key === "Enter"){ e.preventDefault(); savePrice(); }
   });
@@ -1133,8 +1420,17 @@
   pullAll();
 
   // Keep the day-old highlighting honest overnight and re-pull Medi's own entries.
-  // Never while a form is open — a re-render would wipe what June is mid-way through typing.
+  // Never RE-RENDER while a form is open — that would wipe what June is mid-way through typing.
   setInterval(function(){ if(!openId){ pullAll(); renderPrice(); render(); } }, 60000);
+
+  // "Save & next" leaves the next store open, so openId is non-null for the whole round and
+  // the interval above never fired once she got going. That meant the retry queue only ever
+  // drained on a page reload: the badge could sit on "3 still to send" for an hour with
+  // nothing actually retrying. Flushing is safe with a form open — it touches the network,
+  // not the DOM she is typing into.
+  setInterval(function(){
+    if(unsynced.length || priceUnsynced) flushUnsynced();
+  }, 45000);
 
   // Test hook — used by the audit pass to age entries and prove the yellow band.
   window.__june = {
