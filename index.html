@@ -177,6 +177,47 @@
     border-radius:10px;padding:8px 11px;font-family:var(--sans);font-size:12.5px;font-weight:600}
   .sortnote{font-family:var(--mono);font-size:10.5px;color:var(--ink-mute)}
 
+  /* ============ TIERS ============
+     One hue per tier, used in three places: the toggle chip, the faint row wash,
+     and the little number badge on the store name. The washes are deliberately
+     weak (5-7% alpha) so the freshness colours — the day-old yellow especially —
+     stay the loudest thing on the row. */
+  :root{
+    --t1:#0f9d6b; --t2:#3b82c4; --t3:#b08b17; --t4:#a06bd0; --t5:#8a8a8a;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --t1:#4bd6a0; --t2:#6ea8e8; --t3:#e0bb4e; --t4:#c294f0; --t5:#9aa0ae; }
+  }
+  :root[data-theme="light"]{ --t1:#0f9d6b; --t2:#3b82c4; --t3:#b08b17; --t4:#a06bd0; --t5:#8a8a8a; }
+  :root[data-theme="dark"]{  --t1:#4bd6a0; --t2:#6ea8e8; --t3:#e0bb4e; --t4:#c294f0; --t5:#9aa0ae; }
+
+  .tierbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .tierlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--ink-mute)}
+  .tchip{cursor:pointer;font-family:var(--mono);font-size:11.5px;font-weight:700;
+    color:var(--ink-mute);background:var(--bg2);border:1px solid var(--line2);
+    border-radius:999px;padding:6px 11px;display:inline-flex;align-items:center;gap:6px}
+  .tchip .dotc{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9}
+  .tchip .cnt{font-size:10.5px;opacity:.7;font-weight:600}
+  .tchip:hover{border-color:var(--gold-deep)}
+  .tchip[aria-pressed="true"]{color:var(--ink)}
+  .tchip[aria-pressed="true"][data-tier="1"]{border-color:var(--t1);background:rgba(15,157,107,.12)}
+  .tchip[aria-pressed="true"][data-tier="2"]{border-color:var(--t2);background:rgba(59,130,196,.12)}
+  .tchip[aria-pressed="true"][data-tier="3"]{border-color:var(--t3);background:rgba(176,139,23,.12)}
+  .tchip[aria-pressed="true"][data-tier="4"]{border-color:var(--t4);background:rgba(160,107,208,.12)}
+  .tchip[aria-pressed="true"][data-tier="5"]{border-color:var(--t5);background:rgba(138,138,138,.14)}
+  .tchip[data-tier="1"] .dotc{color:var(--t1)} .tchip[data-tier="2"] .dotc{color:var(--t2)}
+  .tchip[data-tier="3"] .dotc{color:var(--t3)} .tchip[data-tier="4"] .dotc{color:var(--t4)}
+  .tchip[data-tier="5"] .dotc{color:var(--t5)}
+  .tchip.allb{font-weight:600;letter-spacing:.04em}
+  .tiernote{font-family:var(--mono);font-size:10.5px;color:var(--ink-mute)}
+
+  /* Tier number worn by the store name. */
+  .tmark{font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.08em;
+    border-radius:4px;padding:1px 5px;border:1px solid currentColor}
+  .tmark.t1{color:var(--t1)} .tmark.t2{color:var(--t2)} .tmark.t3{color:var(--t3)}
+  .tmark.t4{color:var(--t4)} .tmark.t5{color:var(--t5)}
+
   /* ============ STORE LIST ============ */
   .list{display:flex;flex-direction:column;gap:8px}
   .row{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line2);
@@ -186,18 +227,31 @@
   .row.s-stale{border-left-color:var(--closed)}
   .row.s-noans{border-left-color:var(--bad)}
   .row.open{border-color:var(--gold-deep);box-shadow:var(--shadow)}
+  /* Tier wash. Set as background-IMAGE, not background-color, so it layers over the
+     day-old yellow above instead of erasing it. Declared after .row.s-day on purpose. */
+  .row.t1{background-image:linear-gradient(rgba(15,157,107,.055),rgba(15,157,107,.055))}
+  .row.t2{background-image:linear-gradient(rgba(59,130,196,.055),rgba(59,130,196,.055))}
+  .row.t3{background-image:linear-gradient(rgba(176,139,23,.055),rgba(176,139,23,.055))}
+  .row.t4{background-image:linear-gradient(rgba(160,107,208,.055),rgba(160,107,208,.055))}
+  .row.t5{background-image:linear-gradient(rgba(138,138,138,.07),rgba(138,138,138,.07))}
   @media (prefers-reduced-motion:reduce){.row{transition:none}}
 
-  .rhead{width:100%;text-align:left;cursor:pointer;background:transparent;border:0;
+  /* The header row is a flex pair: the big toggle button (June taps anywhere on it while
+     she is on the phone) and a separate map pin. They are SIBLINGS, never nested — an
+     <a> inside a <button> is invalid and would swallow her one-tap open. */
+  .rtop{display:flex;align-items:stretch}
+  .rhead{flex:1;min-width:0;text-align:left;cursor:pointer;background:transparent;border:0;
     color:inherit;font-family:inherit;padding:12px 14px;display:flex;align-items:center;gap:12px}
   .rhead:hover{background:var(--gold-glow)}
+  .mappin{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    width:44px;text-decoration:none;font-size:15px;line-height:1;
+    border-left:1px solid var(--line);color:var(--ink-mute)}
+  .mappin:hover{background:var(--gold-glow)}
   .rank{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--ink-mute);
     min-width:20px;text-align:right}
   .rmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
   .rname{font-size:14.5px;font-weight:660;letter-spacing:-.005em;display:flex;
     align-items:center;gap:7px;flex-wrap:wrap}
-  .bcmark{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--ink-mute);border:1px solid var(--line2);border-radius:4px;padding:1px 5px}
   .rmeta{font-family:var(--mono);font-size:10.5px;color:var(--ink-mute);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rmeta b{color:var(--ink-soft);font-weight:660}
@@ -220,7 +274,9 @@
     background:var(--panel2)}
   .callbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .telbtn{text-decoration:none}
-  .addr{font-family:var(--mono);font-size:11px;color:var(--ink-mute);flex:1;min-width:160px}
+  .addr{font-family:var(--mono);font-size:11px;color:var(--ink-mute);flex:1;min-width:160px;
+    text-decoration:none;border-bottom:1px dotted var(--line2);padding-bottom:1px}
+  .addr:hover{color:var(--gold);border-bottom-color:var(--gold-deep)}
   .f{display:flex;flex-direction:column;gap:5px}
   .f .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
     color:var(--ink-mute)}
@@ -336,6 +392,7 @@
     </div>
     <div class="nu-btns">
       <a class="btn gold telbtn" id="nuCall" href="tel:">📞 <span id="nuPhone">Call</span></a>
+      <a class="btn" id="nuMap" href="#" target="_blank" rel="noopener noreferrer">📍 Map</a>
       <button class="btn" id="nuOpen" type="button">Open form ↓</button>
     </div>
   </div>
@@ -345,13 +402,14 @@
     <div class="chips" role="group" aria-label="Filter stores">
       <button class="chip" type="button" data-f="todo"  aria-pressed="true">To call <span class="cnt" id="cTodo">0</span></button>
       <button class="chip" type="button" data-f="done"  aria-pressed="false">Done today <span class="cnt" id="cDone">0</span></button>
-      <button class="chip" type="button" data-f="all"   aria-pressed="false">All 45</button>
+      <button class="chip" type="button" data-f="all"   aria-pressed="false">All <span class="cnt" id="cAll">45</span></button>
     </div>
     <input class="search" id="search" type="search" placeholder="Search a city…" aria-label="Search stores by city or address">
   </div>
   <div class="sortbar">
     <label class="sortlab" for="sortSel">Sort</label>
     <select id="sortSel">
+      <option value="tier">Tier — 1 first, then 2, 3, 4</option>
       <option value="distance">Distance — nearest to Walnut Creek</option>
       <option value="smart">Today first, nearest — day-old at the bottom</option>
       <option value="name">Name — A to Z</option>
@@ -359,9 +417,19 @@
     </select>
     <span class="sortnote" id="sortNote">—</span>
   </div>
+  <div class="tierbar" id="tierBar" role="group" aria-label="Show or hide tiers">
+    <span class="tierlab">Tiers</span>
+    <button class="tchip" type="button" data-tier="1" aria-pressed="true"><span class="dotc"></span>1 <span class="cnt" id="tc1">0</span></button>
+    <button class="tchip" type="button" data-tier="2" aria-pressed="true"><span class="dotc"></span>2 <span class="cnt" id="tc2">0</span></button>
+    <button class="tchip" type="button" data-tier="3" aria-pressed="true"><span class="dotc"></span>3 <span class="cnt" id="tc3">0</span></button>
+    <button class="tchip" type="button" data-tier="4" aria-pressed="false"><span class="dotc"></span>4 <span class="cnt" id="tc4">0</span></button>
+    <button class="tchip" type="button" data-tier="5" aria-pressed="false"><span class="dotc"></span>5 <span class="cnt" id="tc5">0</span></button>
+    <button class="tchip allb" type="button" data-tier="all">Show all</button>
+    <span class="tiernote" id="tierNote">—</span>
+  </div>
 
   <div class="list" id="list"></div>
-  <div class="empty" id="empty" style="display:none">Nothing here. Try the <b>All 45</b> filter.</div>
+  <div class="empty" id="empty" style="display:none">Nothing here. Try the <b>All</b> filter, or turn a tier back on above.</div>
 
   <!-- EXPORT -->
   <div class="export">
@@ -390,56 +458,73 @@
   "use strict";
 
   /* ============================================================
-     STORES — every Costco warehouse in the Bay Area, ordered by
-     approximate DRIVING distance from Walnut Creek, CA.
-     "bc" = Costco Business Center (separate stock, worth calling).
+     STORES — the Costco warehouses worth calling, in TIER then RANK order,
+     which is also the order June should work them.
+
+     Rebuilt 2026-07-27 from Costco's own warehouse-locator output. Three changes
+     from the old list, all deliberate:
+       1. All three Business Centers are gone (they stock differently and Medi
+          doesn't want them called), as are Roseville / Salinas / Folsom /
+          Sand City — every one of them beyond the 74-mile band.
+       2. "mi" is now Costco's own locator distance (straight line from Walnut
+          Creek), NOT the old hand-estimated driving miles. One consistent
+          source for all 45 rows, including the 8 new ones.
+       3. "t" = tier (1 = call first). "r" = Costco's rank in the locator list.
+     Morgan Hill is the ONE tier-5 row: it is a normal warehouse inside the
+     74-mile band, but it did not appear on Costco's locator output, so it is
+     kept and flagged rather than silently deleted. Its "mi" is an estimate.
      ============================================================ */
   const STORES = [
-    {id:"concord",     n:"Concord",                  a:"2400 Monument Blvd",        c:"Concord",              p:"9255664003", mi:5},
-    {id:"danville",    n:"Danville",                 a:"3150 Fostoria Way",         c:"Danville",             p:"9252770407", mi:12},
-    {id:"richmond",    n:"Richmond",                 a:"4801 Central Ave",          c:"Richmond",             p:"5108982003", mi:18},
-    {id:"brentwood",   n:"Brentwood",                a:"5151 Heidorn Ranch Rd",     c:"Brentwood",            p:"9256660223", mi:22},
-    {id:"livermore",   n:"Livermore",                a:"2800 Independence Dr",      c:"Livermore",            p:"9254436306", mi:25},
-    {id:"sanleandro",  n:"San Leandro",              a:"1900 Davis St",             c:"San Leandro",          p:"5105626708", mi:26},
-    {id:"antioch",     n:"Antioch",                  a:"2201 Verne Roberts Cir",    c:"Antioch",              p:"9257577130", mi:27},
-    {id:"vallejo",     n:"Vallejo",                  a:"198 Plaza Dr",              c:"Vallejo",              p:"7075536400", mi:28},
-    {id:"sf",          n:"San Francisco",            a:"450 10th St",               c:"San Francisco",        p:"4156264388", mi:29},
-    {id:"haywardbc",   n:"Hayward Business Center",  a:"22330 Hathaway Ave",        c:"Hayward",              p:"5102596600", mi:30, bc:true},
-    {id:"hayward",     n:"Hayward",                  a:"28505 Hesperian Blvd",      c:"Hayward",              p:"5109213126", mi:33},
-    {id:"ssfbc",       n:"S. San Francisco Business Center", a:"900 Dubuque Ave",   c:"South San Francisco",  p:"6507844047", mi:33, bc:true},
-    {id:"ssf",         n:"South San Francisco",      a:"1600 El Camino Real",       c:"South San Francisco",  p:"6507573003", mi:35},
-    {id:"fremont",     n:"Fremont",                  a:"43621 Pacific Commons Blvd",c:"Fremont",              p:"5108971092", mi:36},
-    {id:"novato",      n:"Novato",                   a:"300 Vintage Way",           c:"Novato",               p:"4158991332", mi:38},
-    {id:"fairfield",   n:"Fairfield",                a:"5101 Business Center Dr",   c:"Fairfield",            p:"7078643816", mi:39},
-    {id:"fostercity",  n:"Foster City",              a:"1001 Metro Center Blvd",    c:"Foster City",          p:"6502860739", mi:42},
-    {id:"tracy",       n:"Tracy",                    a:"3250 W Grant Line Rd",      c:"Tracy",                p:"2098305340", mi:42},
-    {id:"napa",        n:"Napa",                     a:"280 Riversound Way",        c:"Napa",                 p:"7078195900", mi:43},
-    {id:"santaclara",  n:"Santa Clara",              a:"1601 Coleman Ave",          c:"Santa Clara",          p:"4085679000", mi:44},
-    {id:"sjne",        n:"San Jose — Automation Pkwy",a:"1709 Automation Pkwy",     c:"San Jose",             p:"4086782150", mi:45},
-    {id:"redwoodcity", n:"Redwood City",             a:"2300 Middlefield Rd",       c:"Redwood City",         p:"6505684040", mi:46},
-    {id:"sunnyvale",   n:"Sunnyvale",                a:"150 Lawrence Station Rd",   c:"Sunnyvale",            p:"4087301892", mi:47},
-    {id:"mountainview",n:"Mountain View",            a:"1000 N Rengstorff Ave",     c:"Mountain View",        p:"6509881841", mi:48},
-    {id:"vacaville",   n:"Vacaville",                a:"1051 Hume Way",             c:"Vacaville",            p:"7074537343", mi:48},
-    {id:"sjsenter",    n:"San Jose — Senter Rd",     a:"2201 Senter Rd",            c:"San Jose",             p:"4082750199", mi:50},
-    {id:"sjalmaden",   n:"San Jose — Almaden",       a:"5301 Almaden Expy",         c:"San Jose",             p:"4087230964", mi:55},
-    {id:"stockton",    n:"Stockton",                 a:"1616 E Hammer Ln",          c:"Stockton",             p:"2094782040", mi:57},
-    {id:"manteca",     n:"Manteca",                  a:"2440 Daniels St",           c:"Manteca",              p:"2098258200", mi:58},
-    {id:"rohnertpark", n:"Rohnert Park",             a:"5901 Redwood Dr",           c:"Rohnert Park",         p:"7075409113", mi:62},
-    {id:"lodi",        n:"Lodi",                     a:"2680 Reynolds Ranch Pkwy",  c:"Lodi",                 p:"2093667300", mi:65},
-    {id:"santarosa",   n:"Santa Rosa",               a:"1900 Santa Rosa Ave",       c:"Santa Rosa",           p:"7075783775", mi:68},
-    {id:"morganhill",  n:"Morgan Hill",              a:"820 E Dunne Ave #100",      c:"Morgan Hill",          p:"4087822131", mi:68},
-    {id:"modesto",     n:"Modesto",                  a:"3801 Pelandale Ave",        c:"Modesto",              p:"2093424903", mi:72},
-    {id:"elkgrove",    n:"Elk Grove",                a:"7400 Elk Grove Blvd",       c:"Elk Grove",            p:"9164656050", mi:72},
-    {id:"sacflorin",   n:"Sacramento — Florin Rd",   a:"8484 Florin Rd",            c:"Sacramento",           p:"9167391045", mi:75},
-    {id:"gilroy",      n:"Gilroy",                   a:"7251 Camino Arroyo",        c:"Gilroy",               p:"4088480700", mi:78},
-    {id:"saccalexpo",  n:"Sacramento — Cal Expo",    a:"1600 Expo Pkwy",            c:"Sacramento",           p:"9168301078", mi:78},
-    {id:"sacbc",       n:"Sacramento Business Center",a:"3360 El Camino Ave",       c:"Sacramento",           p:"9164264556", mi:80, bc:true},
-    {id:"sacnatomas",  n:"Sacramento — Natomas",     a:"3881 E Commerce Way",       c:"Sacramento",           p:"9162659594", mi:80},
-    {id:"woodland",    n:"Woodland",                 a:"2299 Bronze Star Dr",       c:"Woodland",             p:"5304062120", mi:82},
-    {id:"roseville",   n:"Roseville",                a:"6750 Stanford Ranch Rd",    c:"Roseville",            p:"9167891485", mi:92},
-    {id:"salinas",     n:"Salinas",                  a:"1339 N Davis Rd",           c:"Salinas",              p:"8314244242", mi:93},
-    {id:"folsom",      n:"Folsom",                   a:"1800 Cavitt Dr",            c:"Folsom",               p:"9168501000", mi:95},
-    {id:"sandcity",    n:"Sand City (Monterey)",     a:"801 Tioga Ave",             c:"Sand City",            p:"8318991255", mi:100}
+    /* ---- TIER 1 · closest, call these first ---- */
+    {id:"antioch",     n:"Antioch",                     a:"2201 Verne Roberts Cir",    c:"Antioch",             z:"94509", p:"9257577130", mi:13.5, t:1, r:1},
+    {id:"vallejo",     n:"Vallejo",                     a:"198 Plaza Dr",              c:"Vallejo",             z:"94591", p:"7075536400", mi:19.4, t:1, r:2},
+    {id:"richmond",    n:"Richmond",                    a:"4801 Central Ave",          c:"Richmond",            z:"94804", p:"5108982003", mi:15.4, t:1, r:3},
+    {id:"pleasanton",  n:"Pleasanton",                  a:"7200 Johnson Dr",           c:"Pleasanton",          z:"94588", p:"9254754000", mi:15,   t:1, r:4},
+    {id:"livermore",   n:"Livermore",                   a:"2800 Independence Dr",      c:"Livermore",           z:"94551", p:"9254436306", mi:17.8, t:1, r:5},
+    {id:"concord",     n:"Concord",                     a:"2400 Monument Blvd",        c:"Concord",             z:"94520", p:"9255664003", mi:4.7,  t:1, r:6},
+    {id:"hayward",     n:"Hayward",                     a:"28505 Hesperian Blvd",      c:"Hayward",             z:"94545", p:"5109213126", mi:19.1, t:1, r:7},
+    /* ---- TIER 2 ---- */
+    {id:"danville",    n:"Danville",                    a:"3150 Fostoria Way",         c:"Danville",            z:"94526", p:"9252770407", mi:8.2,  t:2, r:8},
+    {id:"sjalmaden",   n:"San Jose — Almaden",          a:"5301 Almaden Expy",         c:"San Jose",            z:"95118", p:"4087230964", mi:44.8, t:2, r:9},
+    {id:"modesto",     n:"Modesto",                     a:"3801 Pelandale Ave",        c:"Modesto",             z:"95356", p:"2093424903", mi:54.6, t:2, r:10},
+    {id:"sanleandro",  n:"San Leandro",                 a:"1900 Davis St",             c:"San Leandro",         z:"94577", p:"5105626708", mi:14,   t:2, r:11},
+    {id:"brentwood",   n:"Brentwood",                   a:"5151 Heidorn Ranch Rd",     c:"Brentwood",           z:"94513", p:"9256660223", mi:16.4, t:2, r:12},
+    /* ---- TIER 3 ---- */
+    {id:"sf",          n:"San Francisco",               a:"450 10th St",               c:"San Francisco",       z:"94103", p:"4156264388", mi:22,   t:3, r:20},
+    {id:"fairfield",   n:"Fairfield",                   a:"5101 Business Center Dr",   c:"Fairfield",           z:"94534", p:"7078643816", mi:23.3, t:3, r:21},
+    {id:"newark",      n:"Newark",                      a:"350 Newpark Mall",          c:"Newark",              z:"94560", p:"5104932945", mi:25.2, t:3, r:22},
+    {id:"fostercity",  n:"Foster City",                 a:"1001 Metro Center Blvd",    c:"Foster City",         z:"94404", p:"6502860739", mi:26.1, t:3, r:23},
+    {id:"ssfairport",  n:"S. San Francisco — Airport",  a:"451 S Airport Blvd",        c:"South San Francisco", z:"94080", p:"6508722021", mi:26.3, t:3, r:24},
+    {id:"fremont",     n:"Fremont",                     a:"43621 Pacific Commons Blvd",c:"Fremont",             z:"94538", p:"5108971092", mi:27,   t:3, r:25},
+    {id:"ssf",         n:"S. San Francisco — El Camino",a:"1600 El Camino Real",       c:"South San Francisco", z:"94080", p:"6507573003", mi:27.3, t:3, r:26},
+    {id:"napa",        n:"Napa",                        a:"280 Riversound Way",        c:"Napa",                z:"94558", p:"7078195900", mi:28.2, t:3, r:27},
+    {id:"redwoodcity", n:"Redwood City",                a:"2300 Middlefield Rd",       c:"Redwood City",        z:"94063", p:"6505684040", mi:30,   t:3, r:28},
+    {id:"novato",      n:"Novato",                      a:"300 Vintage Way",           c:"Novato",              z:"94945", p:"4158991332", mi:31.2, t:3, r:29},
+    {id:"vacaville",   n:"Vacaville",                   a:"1051 Hume Way",             c:"Vacaville",           z:"95687", p:"7074537343", mi:32,   t:3, r:30},
+    /* ---- TIER 4 ---- */
+    {id:"tracy",       n:"Tracy",                       a:"3250 W Grant Line Rd",      c:"Tracy",               z:"95304", p:"2098305340", mi:32.2, t:4, r:31},
+    {id:"mountainview",n:"Mountain View",               a:"1000 N Rengstorff Ave",     c:"Mountain View",       z:"94043", p:"6509881841", mi:32.5, t:4, r:32},
+    {id:"sjne",        n:"San Jose — Automation Pkwy",  a:"1709 Automation Pkwy",      c:"San Jose",            z:"95131", p:"4086782150", mi:35.4, t:4, r:33},
+    {id:"sunnyvale",   n:"Sunnyvale",                   a:"150 Lawrence Station Rd",   c:"Sunnyvale",           z:"94086", p:"4087301892", mi:35.8, t:4, r:34},
+    {id:"santaclara",  n:"Santa Clara",                 a:"1601 Coleman Ave",          c:"Santa Clara",         z:"95050", p:"4085679000", mi:37.2, t:4, r:35},
+    {id:"sjsenter",    n:"San Jose — Senter Rd",        a:"2201 Senter Rd",            c:"San Jose",            z:"95112", p:"4082750199", mi:41.3, t:4, r:36},
+    {id:"stockton",    n:"Stockton",                    a:"1616 E Hammer Ln",          c:"Stockton",            z:"95210", p:"2094782040", mi:41.6, t:4, r:37},
+    {id:"manteca",     n:"Manteca",                     a:"2440 Daniels St",           c:"Manteca",             z:"95337", p:"2098258200", mi:43,   t:4, r:38},
+    {id:"lodi",        n:"Lodi",                        a:"2680 Reynolds Ranch Pkwy",  c:"Lodi",                z:"95240", p:"2093667300", mi:44.6, t:4, r:39},
+    {id:"sjgreatoaks", n:"San Jose — Great Oaks",       a:"6898 Raleigh Rd",           c:"San Jose",            z:"95119", p:"4089087929", mi:46.7, t:4, r:40},
+    {id:"rohnertpark", n:"Rohnert Park",                a:"5901 Redwood Dr",           c:"Rohnert Park",        z:"94928", p:"7075409113", mi:48.9, t:4, r:41},
+    {id:"elkgrove",    n:"Elk Grove",                   a:"7400 Elk Grove Blvd",       c:"Elk Grove",           z:"95757", p:"9164656050", mi:49.2, t:4, r:42},
+    {id:"santarosa",   n:"Santa Rosa",                  a:"1900 Santa Rosa Ave",       c:"Santa Rosa",          z:"95407", p:"7075783775", mi:51.8, t:4, r:43},
+    {id:"sacstockton", n:"Sacramento — E Stockton Blvd",a:"7981 E Stockton Blvd",      c:"Sacramento",          z:"95823", p:"9166823569", mi:52.4, t:4, r:44},
+    {id:"woodland",    n:"Woodland",                    a:"2299 Bronze Star Dr",       c:"Woodland",            z:"95776", p:"5304062120", mi:56.8, t:4, r:45},
+    {id:"saccalexpo",  n:"Sacramento — Cal Expo",       a:"1600 Expo Pkwy",            c:"Sacramento",          z:"95815", p:"9168301078", mi:58.3, t:4, r:46},
+    {id:"sacnatomas",  n:"Sacramento — Natomas",        a:"3881 E Commerce Way",       c:"Sacramento",          z:"95834", p:"9162659594", mi:59,   t:4, r:47},
+    {id:"riverbank",   n:"Riverbank",                   a:"2015 Claribel Rd",          c:"Riverbank",           z:"95367", p:"2094585587", mi:59.9, t:4, r:48},
+    {id:"santacruz",   n:"Santa Cruz",                  a:"220 Sylvania Ave",          c:"Santa Cruz",          z:"95060", p:"8314690961", mi:62.5, t:4, r:49},
+    {id:"ranchocordova",n:"Rancho Cordova",             a:"11260 White Rock Rd",       c:"Rancho Cordova",      z:"95742", p:"9167242240", mi:64,   t:4, r:50},
+    {id:"gilroy",      n:"Gilroy",                      a:"7251 Camino Arroyo",        c:"Gilroy",              z:"95020", p:"4088480700", mi:74.2, t:4, r:51},
+    /* ---- TIER 5 · kept for review, hidden by default ---- */
+    {id:"morganhill",  n:"Morgan Hill",                 a:"820 E Dunne Ave #100",      c:"Morgan Hill",         z:"95037", p:"4087822131", mi:57,   t:5, r:99}
   ];
 
   /* ---- shared cloud store (Supabase) — same tables the dashboard reads ---- */
@@ -453,8 +538,12 @@
   const PRICE_KEY = "alchemy_june_price_v2";
   const UNSYNC_KEY = "alchemy_june_unsynced";
   const SORT_KEY = "alchemy_june_sort";
+  const TIERS_KEY = "alchemy_june_tiers";
   const THEME_KEY = "alchemy_theme";
   const DAY = 864e5;
+  // Which tiers the list shows. Default is 1-3 — tier 4 is the long-drive tail and tier 5
+  // is the single flagged warehouse, so neither is in June's way until she asks for it.
+  const TIERS_DEFAULT = "1,2,3";
 
   /* ---------- state ---------- */
   let data  = loadJSON(KEY, {});         // {storeId:{stock,pamp,generic,note,t}}
@@ -464,6 +553,15 @@
   let sortBy = localStorage.getItem(SORT_KEY) || "distance";
   let query  = "";
   let openId = null;
+  // Set of visible tier numbers, e.g. {1:true,2:true,3:true}.
+  let tiersOn = (function(){
+    const raw = localStorage.getItem(TIERS_KEY);
+    const src = (raw==null || raw==="") ? TIERS_DEFAULT : raw;
+    const m = {};
+    src.split(",").forEach(function(n){ n=parseInt(n,10); if(n>=1&&n<=5) m[n]=true; });
+    // An empty set would show June a blank page with no way back, so refuse it.
+    return Object.keys(m).length ? m : {1:true,2:true,3:true};
+  })();
   // True once June edits the price box and until she actually saves it.
   let priceDirty = false;
   let online = null;                     // null = unknown, true/false once tested
@@ -493,6 +591,13 @@
     });
   }
   function phoneFmt(p){ return "(" + p.slice(0,3) + ") " + p.slice(3,6) + "-" + p.slice(6); }
+  function fullAddr(s){ return s.a + ", " + s.c + ", CA" + (s.z ? " " + s.z : ""); }
+  // Google's documented cross-platform search URL: it opens the Maps app on June's phone
+  // and the web map on Medi's desktop, from the same href.
+  function mapsHref(s){
+    return "https://www.google.com/maps/search/?api=1&query=" +
+           encodeURIComponent("Costco Wholesale, " + fullAddr(s));
+  }
   function nnum(v){ return v==null || v==="" || isNaN(v) ? 0 : Number(v); }
   function barsOf(e){ return e ? nnum(e.pamp) + nnum(e.generic) : 0; }
   const storeById = function(id){ return STORES.filter(function(s){return s.id===id;})[0]; };
@@ -846,17 +951,22 @@
   /* ---------- filter + sort ---------- */
   // Smart order: today's calls first, then never-called, then day-old, then 2-days-plus —
   // nearest to Walnut Creek first inside each group. Day-old work sinks to the bottom.
-  const TIER = {done:0, noans:0, todo:1, day:2, stale:3};
+  // Freshness ranking used by the "smart" sort. Named STATUS_RANK, not TIER, so it
+  // can't be confused with a store's tier (s.t), which is a completely different idea.
+  const STATUS_RANK = {done:0, noans:0, todo:1, day:2, stale:3};
   const SORT_NOTE = {
     smart:"Called today at the top · never-called next · day-old and older at the bottom · nearest first inside each group",
     distance:"Straight distance order — closest Costco to Walnut Creek first",
     name:"Alphabetical by warehouse name",
-    bars:"Most bars on hand first · never-called warehouses last"
+    bars:"Most bars on hand first · never-called warehouses last",
+    tier:"Tier 1 first, then 2, 3, 4 — Costco's own ranking order inside each tier"
   };
 
   function visible(){
     const rows = STORES.filter(function(s){
       if(s.id === openId) return true;
+      // Tier gate comes first: a hidden tier is hidden under every filter and search.
+      if(!tiersOn[s.t]) return false;
       const st = statusOf(s.id);
       let okF;
       if(filter === "all")       okF = true;
@@ -873,6 +983,7 @@
     });
 
     return rows.sort(function(a,b){
+      if(sortBy === "tier")     return a.t - b.t || a.r - b.r;
       if(sortBy === "distance") return a.mi - b.mi;
       if(sortBy === "name")     return a.n.localeCompare(b.n);
       if(sortBy === "bars"){
@@ -881,19 +992,64 @@
         if(ab !== bb) return bb - ab;
         return a.mi - b.mi;
       }
-      const at = TIER[statusOf(a.id)], bt = TIER[statusOf(b.id)];
+      const at = STATUS_RANK[statusOf(a.id)], bt = STATUS_RANK[statusOf(b.id)];
       if(at !== bt) return at - bt;
       return a.mi - b.mi;
     });
   }
 
-  // Next call is always the nearest one that needs doing, whatever the display sort is.
+  // Next call is the highest-priority one that still needs doing, whatever the display
+  // sort is — STORES is stored in tier-then-rank order, so a plain scan gives that.
+  // Hidden tiers are skipped: pointing June at a store she cannot see on the list is
+  // worse than pointing her at the next one she can.
   function nextToCall(){
     for(let i=0;i<STORES.length;i++){
+      if(!tiersOn[STORES[i].t]) continue;
       const st = statusOf(STORES[i].id);
       if(st === "todo" || st === "stale" || st === "day") return STORES[i];
     }
     return null;
+  }
+
+  /* ---------- tier menu ---------- */
+  const TIER_COUNTS = (function(){
+    const m = {1:0,2:0,3:0,4:0,5:0};
+    STORES.forEach(function(s){ m[s.t]++; });
+    return m;
+  })();
+
+  function toggleTier(which){
+    if(which === "all"){
+      // "Show all" is a one-way switch to everything; tapping it again would leave a
+      // blank list, so it toggles back to the 1-2-3 default instead.
+      const allOn = [1,2,3,4,5].every(function(n){ return tiersOn[n]; });
+      tiersOn = allOn ? {1:true,2:true,3:true} : {1:true,2:true,3:true,4:true,5:true};
+    } else {
+      const n = parseInt(which,10);
+      if(!(n>=1 && n<=5)) return;
+      if(tiersOn[n]) delete tiersOn[n]; else tiersOn[n] = true;
+      // Never let June end up with an empty list and no obvious way out.
+      if(!Object.keys(tiersOn).length){ tiersOn[n] = true; toast("At least one tier has to stay on"); }
+    }
+    try{ localStorage.setItem(TIERS_KEY, Object.keys(tiersOn).sort().join(",")); }catch(e){}
+    openId = null;
+    renderTierBar(); render();   // render() ends with renderBand(), which redoes the counts
+  }
+
+  function renderTierBar(){
+    for(let n=1;n<=5;n++){
+      const b = document.querySelector('.tchip[data-tier="'+n+'"]');
+      if(b) b.setAttribute("aria-pressed", tiersOn[n] ? "true" : "false");
+      const c = $("tc"+n);
+      if(c) c.textContent = TIER_COUNTS[n];
+    }
+    const on = [1,2,3,4,5].filter(function(n){ return tiersOn[n]; });
+    const shown = on.reduce(function(a,n){ return a + TIER_COUNTS[n]; }, 0);
+    const allb = document.querySelector('.tchip[data-tier="all"]');
+    if(allb) allb.textContent = (on.length === 5) ? "Back to 1-3" : "Show all";
+    const note = $("tierNote");
+    if(note) note.textContent = shown + " of " + STORES.length + " warehouses showing · tier " +
+      on.join(", ") + (tiersOn[5] ? " · tier 5 is Morgan Hill only, kept for review" : "");
   }
 
   /* ---------- render ---------- */
@@ -928,15 +1084,16 @@
       const counts = (st !== "todo" && e.stock === "yes")
         ? " · <b>" + tot + " bars</b> (" + nnum(e.pamp) + "P / " + nnum(e.generic) + "G)" : "";
       return '' +
-      '<div class="row s-' + st + (isOpen ? " open" : "") + '" data-id="' + s.id + '">' +
+      '<div class="row t' + s.t + ' s-' + st + (isOpen ? " open" : "") + '" data-id="' + s.id + '">' +
+        '<div class="rtop">' +
         '<button class="rhead" type="button" data-act="toggle" data-id="' + s.id + '" ' +
                 'aria-expanded="' + (isOpen ? "true" : "false") + '" ' +
-                'aria-label="' + esc(s.n) + ', ' + s.mi + ' miles. ' + PILL[st] +
+                'aria-label="' + esc(s.n) + ', tier ' + s.t + ', ' + s.mi + ' miles. ' + PILL[st] +
                   (w ? ' ' + w : '') + '. Open call form.">' +
           '<span class="rank tnum">' + s.mi + '<span style="font-size:8px;opacity:.6">mi</span></span>' +
           '<span class="rmain">' +
             '<span class="rname">' + esc(s.n) +
-              (s.bc ? '<span class="bcmark">Business</span>' : '') + '</span>' +
+              '<span class="tmark t' + s.t + '">T' + s.t + '</span></span>' +
             '<span class="rmeta">' + esc(s.a) + ', ' + esc(s.c) + counts + '</span>' +
           '</span>' +
           '<span class="rright">' +
@@ -945,6 +1102,9 @@
           '</span>' +
           '<span class="chev" aria-hidden="true">⌄</span>' +
         '</button>' +
+        '<a class="mappin" href="' + mapsHref(s) + '" target="_blank" rel="noopener noreferrer" ' +
+           'aria-label="Open ' + esc(s.n) + ' Costco in Google Maps">📍</a>' +
+        '</div>' +
         (isOpen ? formHTML(s, e) : '') +
       '</div>';
     }).join("");
@@ -961,7 +1121,9 @@
     '<div class="form">' +
       '<div class="callbar">' +
         '<a class="btn gold telbtn" href="tel:+1' + s.p + '">📞 ' + phoneFmt(s.p) + '</a>' +
-        '<span class="addr">' + esc(s.a) + ', ' + esc(s.c) + ', CA · ' + s.mi + ' mi from Walnut Creek</span>' +
+        '<a class="addr" href="' + mapsHref(s) + '" target="_blank" rel="noopener noreferrer" ' +
+           'aria-label="Open ' + esc(s.n) + ' Costco in Google Maps">📍 ' +
+           esc(fullAddr(s)) + ' · ' + s.mi + ' mi from Walnut Creek</a>' +
       '</div>' +
 
       '<div class="f">' +
@@ -1012,14 +1174,31 @@
   }
 
   function renderBand(){
-    let done=0, day=0, stale=0, todo=0, saved=0, stocked=0, pamp=0, gen=0, noCount=0;
-    STORES.forEach(function(s){
-      const st = statusOf(s.id), e = data[s.id];
-      if(e && e.t) saved++;
+    /* Two different scopes on purpose, and the split matters:
+
+       PROGRESS (ring, "x of y called", the To-call / Done chips) follows the tier menu.
+       If June has hidden tier 4, "12 of 23 called" has to mean the 23 she can actually
+       see, or the ring never fills and she reads it as falling behind on stores she
+       isn't calling.
+
+       INVENTORY (bars, Pamp, Generic, stocked) counts EVERY store, always. Those are the
+       numbers she copies to Medi in summaryTxt(), which has no idea the tier menu exists.
+       Scoping them would make her screen and her message disagree — a silent data change
+       caused by a display toggle. */
+    const inScope = STORES.filter(function(s){ return tiersOn[s.t]; });
+    let done=0, day=0, stale=0, todo=0;
+    inScope.forEach(function(s){
+      const st = statusOf(s.id);
       if(st==="done"||st==="noans") done++;
       else if(st==="day") day++;
       else if(st==="stale") stale++;
       else todo++;
+    });
+
+    let saved=0, stocked=0, pamp=0, gen=0, noCount=0;
+    STORES.forEach(function(s){
+      const st = statusOf(s.id), e = data[s.id];
+      if(e && e.t) saved++;
       // Only warehouses called inside the last 2 days count as current stock — and "yes"
       // with no number written down is counted SEPARATELY, exactly as the dashboard does it.
       // When this page counted it as stock and the dashboard didn't, the two screens
@@ -1033,12 +1212,12 @@
       }
     });
 
-    const pct = Math.round(done / STORES.length * 100);
+    const pct = inScope.length ? Math.round(done / inScope.length * 100) : 0;
     const C = 2 * Math.PI * 26;
     $("ringFill").setAttribute("stroke-dasharray", (C*pct/100).toFixed(1) + " " + C.toFixed(1));
     $("ringTxt").textContent = pct + "%";
     $("bandH").textContent = done
-      ? done + " of " + STORES.length + " called today"
+      ? done + " of " + inScope.length + " called today"
       : "Nothing called yet today";
     $("bandS").textContent = todo + " to go · " + day + " day-old · " + stale + " older than 2 days";
 
@@ -1054,11 +1233,14 @@
     // Day-old stores are part of the call queue now, so they count toward "To call".
     $("cTodo").textContent   = todo + stale + day;
     $("cDone").textContent   = done;
+    $("cAll").textContent    = inScope.length;
     $("savedCount").textContent = saved;
 
     const nx = nextToCall();
-    $("nuName").textContent  = nx ? nx.n : "All done — nice work 🎉";
-    $("nuAddr").textContent  = nx ? (nx.mi + " mi · " + nx.a + ", " + nx.c) : "Every store on the list is current.";
+    $("nuName").textContent  = nx ? (nx.n + " · T" + nx.t) : "All done — nice work 🎉";
+    $("nuAddr").textContent  = nx ? (nx.mi + " mi · " + fullAddr(nx)) : "Every store on the list is current.";
+    $("nuMap").href          = nx ? mapsHref(nx) : "#";
+    $("nuMap").style.display = nx ? "" : "none";
     $("nuPhone").textContent = nx ? phoneFmt(nx.p) : "Call";
     $("nuCall").href         = nx ? ("tel:+1" + nx.p) : "#";
     $("nuCall").style.display = nx ? "" : "none";
@@ -1281,9 +1463,10 @@
 
   /* ---------- events (delegated) ---------- */
   document.addEventListener("click", function(ev){
-    const btn = ev.target.closest("[data-act], .chip, #nuOpen, #priceSave, #copyBtn, #csvBtn, #previewBtn, #resetBtn, #themeBtn");
+    const btn = ev.target.closest("[data-act], .chip, .tchip, #nuOpen, #priceSave, #copyBtn, #csvBtn, #previewBtn, #resetBtn, #themeBtn");
     if(!btn) return;
 
+    if(btn.classList.contains("tchip")){ toggleTier(btn.dataset.tier); return; }
     if(btn.classList.contains("chip")){
       filter = btn.dataset.f;
       document.querySelectorAll(".chip").forEach(function(c){
@@ -1401,6 +1584,7 @@
     {month:"short",day:"numeric",year:"numeric"});
   $("sortSel").value = sortBy;
 
+  renderTierBar();
   renderPrice();
   render();
   setSync("busy");
@@ -1423,6 +1607,7 @@
   window.__june = {
     STORES:STORES, statusOf:statusOf, render:render, renderPrice:renderPrice,
     visible:visible, pullAll:pullAll, setSort:function(v){ sortBy=v; $("sortSel").value=v; render(); },
+    mapsHref:mapsHref, toggleTier:toggleTier, get tiers(){ return tiersOn; },
     get data(){return data;},  set data(v){ data = v; persist(KEY, data); render(); },
     get price(){return price;}, set price(v){ price = v; persist(PRICE_KEY, price); renderPrice(); render(); }
   };
