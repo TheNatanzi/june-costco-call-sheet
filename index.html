@@ -496,7 +496,7 @@
     {id:"pleasanton",  n:"Pleasanton",                  a:"7200 Johnson Dr",           c:"Pleasanton",          z:"94588", p:"9254754000", mi:15,   t:1, r:4},
     {id:"livermore",   n:"Livermore",                   a:"2800 Independence Dr",      c:"Livermore",           z:"94551", p:"9254436306", mi:17.8, t:1, r:5},
     {id:"concord",     n:"Concord",                     a:"2400 Monument Blvd",        c:"Concord",             z:"94520", p:"9255664003", mi:4.7,  t:1, r:6},
-    {id:"hayward",     n:"Hayward",                     a:"28505 Hesperian Blvd",      c:"Hayward",             z:"94545", p:"5109213126", mi:19.1, t:1, r:7},
+    {id:"hayward",     n:"Hayward",                     a:"28505 Hesperian Blvd",      c:"Hayward",             z:"94545", p:"5109213128", mi:19.1, t:1, r:7},
     /* ---- TIER 2 ---- */
     {id:"danville",    n:"Danville",                    a:"3150 Fostoria Way",         c:"Danville",            z:"94526", p:"9252770407", mi:8.2,  t:2, r:8},
     {id:"sjalmaden",   n:"San Jose — Almaden",          a:"5301 Almaden Expy",         c:"San Jose",            z:"95118", p:"4087230964", mi:44.8, t:2, r:9},
@@ -762,7 +762,8 @@
     if(!s || !e) return Promise.resolve(false);
     setSync("busy");
     const body = {
-      store_id:s.id, store_name:s.n, city:s.c, miles:s.mi,
+      // The shared list's miles column only takes whole numbers; 4.7 gets the row refused.
+      store_id:s.id, store_name:s.n, city:s.c, miles:Math.round(s.mi),
       in_stock:e.stock==="yes",
       pamp:e.stock==="yes"?nnum(e.pamp):0,
       generic:e.stock==="yes"?nnum(e.generic):0,
@@ -1357,7 +1358,7 @@
           // Keep June's discarded count in the append-only history anyway — she typed it,
           // so it should never simply evaporate because Medi got there first.
           const s = storeById(id);
-          if(s) logCall({store_id:s.id, store_name:s.n, city:s.c, miles:s.mi,
+          if(s) logCall({store_id:s.id, store_name:s.n, city:s.c, miles:Math.round(s.mi),
                          in_stock:rec.stock==="yes",
                          pamp:rec.stock==="yes"?nnum(rec.pamp):0,
                          generic:rec.stock==="yes"?nnum(rec.generic):0,
